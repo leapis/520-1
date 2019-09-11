@@ -1,8 +1,8 @@
 import numpy as np
 import random
 
-FIRE = 2
-BLOCKED = 1
+FIRE = 1
+BLOCKED = -1
 UNBLOCKED = 0
 
 def generateGrid(dimm, p):
@@ -27,7 +27,8 @@ def generateGrid(dimm, p):
 
 def main():
     """Testing method"""
-    grid = generateGrid(10, 0)
+    print("Testing grid.py")
+    grid = generateGrid(10, .5)
     print(grid)
 
-if(__name__ == "__main__"): main()
+if (__name__ == "__main__"): main()
