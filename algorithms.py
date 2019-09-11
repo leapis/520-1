@@ -15,7 +15,7 @@ def DFS(grid, start, goal):
         y, x = current
         closedList.update({current: previous})
         last = current
-        if(current == goal):
+        if (current == goal):
             return (True, makePath(start, goal, closedList))
         #scan surrounding elements and add them to the closed list
         for newCoord in ((y, x-1), (y-1, x), (y, x+1), (y+1, x)): #it's ordered in this way to make it nice and short in a lot of cases, but priority doesn't really matter for DFS
@@ -40,7 +40,7 @@ def BFS(grid, start, goal):
         y, x = current
         closedList.update({current: previous})
         last = current
-        if(current == goal):
+        if (current == goal):
             return (True, makePath(start, goal, closedList))
         #scan surrounding elements and add them to the closed list
         for newCoord in ((y, x-1), (y-1, x), (y, x+1), (y+1, x)): #it's ordered in this way to make it nice and short in a lot of cases, but priority doesn't really matter for DFS
@@ -61,7 +61,7 @@ def scan(grid, coords):
         return False
     if (y > maxHeight or x > maxHeight):
         return False
-    if(int(grid[y][x]) == gd.BLOCKED): #if node is blocked
+    if (int(grid[y][x]) == gd.BLOCKED): #if node is blocked
         return False
     return True
 
@@ -72,7 +72,7 @@ def makePath(start, goal, closedList):
     @return path: array of coords from start to goal
     """
     path = [goal]
-    while(goal != start):
+    while (goal != start):
         goal = closedList.get(goal)
         path.append(goal)
     path.reverse()
@@ -92,4 +92,4 @@ def main():
         print("BFS: ", solvedPath2)
     else: print("Unsolvable!")
 
-if(__name__ == "__main__"): main()
+if (__name__ == "__main__"): main()
