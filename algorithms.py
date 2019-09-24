@@ -1,4 +1,6 @@
 import grid as gd
+import heapq as heap
+import math
 
 def DFS(grid, start, goal):
     """
@@ -14,7 +16,6 @@ def DFS(grid, start, goal):
         current, previous = frontier.pop(0)
         y, x = current
         closedList.update({current: previous})
-        last = current
         if (current == goal):
             return (True, makePath(start, goal, closedList))
         #scan surrounding elements and add them to the closed list
@@ -39,7 +40,6 @@ def BFS(grid, start, goal):
         current, previous = frontier.pop(0)
         y, x = current
         closedList.update({current: previous})
-        last = current
         if (current == goal):
             return (True, makePath(start, goal, closedList))
         #scan surrounding elements and add them to the closed list
@@ -48,7 +48,58 @@ def BFS(grid, start, goal):
             if ((newY, newX) not in closedList and (newY, newX) not in [c for (c,_) in frontier] and scan(grid, (newY, newX))):
                 frontier.append(((newY, newX), current))
     return False, None            
-    
+
+def aStar(grid, start, goal, heuristic):
+    """
+    Runs an A* search from start to goal on the given grid
+    @params grid: selecte grid, start: starting coordinates, goal: goal coordinates
+    @return True/False if a path exists or not, order of nodes used to traverse path if one exists
+    """
+    frontier = []
+    heap.heappush(frontier,(0,(start, None)))
+    closedList = dict()
+    gVals = dict()
+    gVals.update({start: 0})
+    current = start
+    while (len(frontier) > 0):
+        f, (current, previous) = frontier.pop(0)
+        y, x = current
+        closedList.update({current: previous})
+        if (current == goal):
+            return (True, makePath(start, goal, closedList))
+        #scan surrounding elements and add them to closed list
+        currentG = gVals.get(current) + 1
+        for newCoord in ((y, x-1), (y-1, x), (y, x+1), (y+1, x)):
+            newY, newX = newCoord
+            if(scan(grid, (newY, newX))):
+                if (newCoord in [k for _, (k, _) in frontier]): #if discovered node is already in open list
+                    if(gVals.get(newCoord) > currentG):
+                        oldIndex = [z for _, (z, _) in frontier].index(newCoord)
+                        frontier[oldIndex] = (currentG + heuristic(newCoord, goal), (newCoord, current))
+                        heap.heapify(frontier)
+                        gVals.update({newCoord: currentG})
+                elif (newCoord in closedList):
+                    if(gVals.get(newCoord) > currentG):
+                        closedList.pop(newCoord)
+                        heap.heappush(frontier,(currentG + heuristic(newCoord, goal),(newCoord, current)))
+                        gVals.update({newCoord: currentG})
+                else:
+                    heap.heappush(frontier,(currentG + heuristic(newCoord, goal),(newCoord, current)))
+                    gVals.update({newCoord: currentG})
+    return False, None
+            
+
+
+
+def Euc (start, end):
+    y1, x1 = start
+    y2, x2 = end
+    return math.sqrt(math.pow(y1+y2,2) + math.pow(x1+x2,2))
+
+def Zer (start, end):
+    return 0
+
+
 def scan(grid, coords):
     """
     Performs safety checks on nodes before they're added to the frontier
@@ -80,16 +131,25 @@ def makePath(start, goal, closedList):
 
 def main():
     print("Testing algorithms.py")
-    dimm = 10
-    start = (0,0)
-    goal = (dimm-1,dimm-1)
-    grid = gd.generateGrid(dimm, .3)
-    solved, solvedPath = DFS(grid, start, goal)
-    solved, solvedPath2 = BFS(grid, start, goal)
-    print(grid)
-    if (solved): 
-        print("DFS: ", solvedPath)
-        print("BFS: ", solvedPath2)
-    else: print("Unsolvable!")
+    solvedN = 0
+    for q in range(0, 100):
+        dimm = 50
+        start = (0,0)
+        goal = (dimm-1,dimm-1)
+        grid = gd.generateGrid(dimm, .2)
+        solved, solvedPath = DFS(grid, start, goal)
+        solved, solvedPath2 = BFS(grid, start, goal)
+        solved, solvedPath3 = aStar(grid, start, goal, Euc)
+        #print(grid)
+        if (solved): 
+            solvedN += 1
+            assert(len(solvedPath2) == len(solvedPath3))
+            #print("DFS: ", solvedPath)
+            #print("BFS: ", solvedPath2)
+            #print("ASR: ",solvedPath3)
+        else: None#print("Unsolvable!")
+    print(solvedN)
+
+        
 
 if (__name__ == "__main__"): main()
