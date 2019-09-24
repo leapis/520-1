@@ -1,6 +1,7 @@
 import numpy as np
 import grid as gd
 import heapq as heap
+import heuristics as h
 
 def DFS(grid, start, goal):
     """
@@ -131,10 +132,6 @@ def aStar(grid, start, goal, heuristic):
                     gVals.update({newCoord: currentG})
     return False, None, ()
             
-
-def returnZero(start, end):
-    return 0
-
 def scan(grid, coords):
     """
     Performs safety checks on nodes before they're added to the frontier
@@ -166,13 +163,13 @@ def makePath(start, goal, closedList):
 
 def main():
     print("Testing algorithms.py")
-    heuristic = returnZero
+    heuristic = h.returnZero
     runs = 100
     printOn = True
     if (runs > 5): printOn = False #5 is a magic number
     
     for i in range(runs):
-        heuristic = returnZero
+        heuristic = h.returnZero
         dimm = 5
         start = (0,0)
         goal = (dimm-1,dimm-1)
@@ -212,7 +209,7 @@ def main():
             )
             #determines, when using no heuristic, whether aStar is equal to BFS
             assert ( 
-                not (heuristic == returnZero) or 
+                not (heuristic == h.returnZero) or 
                 exploredaStar.difference( exploredBFS.union(frontierBFS) ) == set()
                 #we have to include the frontier of BFS due to queue differences
                 ), (
