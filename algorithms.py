@@ -163,17 +163,19 @@ def makePath(start, goal, closedList):
 
 def main():
     print("Testing algorithms.py")
-    heuristic = h.returnZero
+    heuristic = h.Manhattan
     runs = 100
     printOn = True
     if (runs > 5): printOn = False #5 is a magic number
+    BFSCount = 0
+    aStarCount = 0
     
     for _ in range(runs):
-        heuristic = h.Euc
-        dimm = 40
+        p = 0.3
+        dimm = 30
         start = (0,0)
         goal = (dimm-1,dimm-1)
-        grid = gd.generateGrid(dimm, .2)
+        grid = gd.generateGrid(dimm, p)
         if (printOn): print(grid)
 
         solved, solvedPathDFS = DFS(grid, start, goal)
@@ -182,6 +184,7 @@ def main():
         solved, solvedPathaStar, testingDataaStar = aStar(grid, start, goal, heuristic)
 
         exploredBFS = frontierBFS = exploredaStar = 0
+        printOn = False
         if (solved):
             if(printOn):
                 print("DFS: \t" + str(solvedPathDFS))
@@ -190,15 +193,20 @@ def main():
                 print("aStar: \t", solvedPathaStar)
             
             lenaStar,exploredBFS, frontierBFS = TestingDataBFS
-            lenBFS,exploredaStar, _ = testingDataaStar
+            lenBFS,exploredaStar, frontieraStar = testingDataaStar
             exploredBFS = set(exploredBFS)
             frontierBFS = [v for v,_ in frontierBFS]
             frontierBFS = set(frontierBFS)
             exploredaStar = set(exploredaStar)
-
+            frontieraStar = [v for _,(v,_) in frontieraStar]
+            frontieraStar = set(frontieraStar)
         else: 
             if (printOn): print("Unsolvable!")
 
+        if (solved):
+            BFSCount += len(exploredBFS)#len(exploredBFS.union(frontierBFS))
+            aStarCount += len(exploredaStar)#len(exploredaStar.union(frontieraStar))
+        
         if (solved): #assertions
             assert ( len(solvedPathBFS) == len(solvedPathBDBFS) ), (
                 "BFS and BDBFS are not consistent!")
@@ -218,5 +226,7 @@ def main():
                 str(exploredaStar) + "\n" + str(exploredBFS) + "\n" +
                 str(frontierBFS) + "\n" + str(grid)
             )
+    print(BFSCount)
+    print(aStarCount)
 
 if (__name__ == "__main__"): main()
