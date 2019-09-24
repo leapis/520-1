@@ -15,7 +15,6 @@ def DFS(grid, start, goal):
         current, previous = frontier.pop(0)
         y, x = current
         closedList.update({current: previous})
-        last = current
         if (current == goal):
             return (True, makePath(start, goal, closedList))
         #scan surrounding elements and add them to the closed list
@@ -40,7 +39,6 @@ def BFS(grid, start, goal):
         current, previous = frontier.pop(0)
         y, x = current
         closedList.update({current: previous})
-        last = current
         if (current == goal):
             return (True, makePath(start, goal, closedList))
         #scan surrounding elements and add them to the closed list
@@ -120,23 +118,29 @@ def makePath(start, goal, closedList):
 
 def main():
     print("Testing algorithms.py")
-    dimm = 5
+    dimm = 10
     start = (0,0)
     goal = (dimm-1,dimm-1)
-    grid = gd.generateGrid(dimm, .3)
+    grid = gd.generateGrid(dimm, .2)
     print(grid)
 
     solved, solvedPath = DFS(grid, start, goal)
     if (solved):
-        print("DFS: ", solvedPath)
+        print("DFS: \t", solvedPath)
 
     solved, solvedPath2 = BFS(grid, start, goal)
     if (solved):
-        print("BFS: ", solvedPath2)
+        print("BFS: \t", solvedPath2)
 
     solved, solvedPath3 = BDBFS(grid, start, goal)
     if (solved):
-        print("BDBFS: ", solvedPath3)
+        print("BDBFS: \t", solvedPath3)
     else: print("Unsolvable!")
+
+    if (solved): #assertions
+        assert ( len(solvedPath2) == len(solvedPath3) ), (
+            "BFS and BDBFS are not consistent!")
+        assert ( len(solvedPath) >= len(solvedPath2) ), (
+            "DFS found shorter route than BFS!")
 
 if (__name__ == "__main__"): main()
