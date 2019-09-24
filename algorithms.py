@@ -168,9 +168,9 @@ def main():
     printOn = True
     if (runs > 5): printOn = False #5 is a magic number
     
-    for i in range(runs):
-        heuristic = h.returnZero
-        dimm = 5
+    for _ in range(runs):
+        heuristic = h.Euc
+        dimm = 40
         start = (0,0)
         goal = (dimm-1,dimm-1)
         grid = gd.generateGrid(dimm, .2)
