@@ -1,5 +1,6 @@
 import numpy as np
 import grid as gd
+import heapq as heap
 
 def DFS(grid, start, goal):
     """
@@ -11,7 +12,6 @@ def DFS(grid, start, goal):
     closedList = dict() #list of nodes already explored
     current = start #our curent node
     while (len(frontier) > 0):
-        #print(frontier)
         current, previous = frontier.pop(0)
         y, x = current
         closedList.update({current: previous})
@@ -34,19 +34,20 @@ def BFS(grid, start, goal):
     frontier = [(start, None)] #acts as queue
     closedList = dict() #list of nodes already explored
     current = start #our curent node
+    exploredNodes = []
     while (len(frontier) > 0):
-        #print(frontier)
         current, previous = frontier.pop(0)
+        exploredNodes.append(current)
         y, x = current
         closedList.update({current: previous})
         if (current == goal):
-            return (True, makePath(start, goal, closedList))
+            return (True, makePath(start, goal, closedList), (len(closedList), exploredNodes, frontier))
         #scan surrounding elements and add them to the closed list
         for newCoord in ((y, x-1), (y-1, x), (y, x+1), (y+1, x)): #it's ordered in this way to make it nice and short in a lot of cases, but priority doesn't really matter for DFS
             newY, newX = newCoord
             if ((newY, newX) not in closedList and (newY, newX) not in [c for (c,_) in frontier] and scan(grid, (newY, newX))):
                 frontier.append(((newY, newX), current))
-    return False, None
+    return False, None, ()
 
 def BDBFS(grid, start, goal):
     """
@@ -87,6 +88,53 @@ def BDBFS(grid, start, goal):
                 goalFrontier.append(((newY, newX), current))
     return False, None
 
+def aStar(grid, start, goal, heuristic):
+    """
+    Runs an A* search from start to goal on the given grid
+    @params grid: selecte grid, start: starting coordinates, goal: goal coordinates
+    @return True/False if a path exists or not, order of nodes used to traverse path if one exists
+    """
+    frontier = []
+    heap.heappush(frontier,(0,(start, None)))
+    closedList = dict()
+    gVals = dict()
+    gVals.update({start: 0})
+    current = start
+    exploredNodes = []
+    while (len(frontier) > 0):
+        f, (current, previous) = heap.heappop(frontier)
+        exploredNodes.append(current)
+        y, x = current
+        closedList.update({current: previous})
+        if (current == goal):
+            return (True, makePath(start, goal, closedList), (len(closedList), exploredNodes, frontier))
+        #scan surrounding elements and add them to closed list
+        currentG = gVals.get(current) + 1
+        for newCoord in ( (y, x-1), (y-1, x), (y, x+1), (y+1, x) ):
+            newY, newX = newCoord
+            if(scan(grid, (newY, newX))):
+                if (newCoord in [k for _, (k, _) in frontier]): #if discovered node is already in open list
+                    if(gVals.get(newCoord) > currentG): print (currentG, "OVERWRITE OL!")
+                    if(gVals.get(newCoord) > currentG):
+                        oldIndex = [z for _, (z, _) in frontier].index(newCoord)
+                        frontier[oldIndex] = (currentG + heuristic(newCoord, goal), (newCoord, current))
+                        heap.heapify(frontier)
+                        gVals.update({newCoord: currentG})
+                elif (newCoord in closedList):
+                    if(gVals.get(newCoord) > currentG):
+                        print("OVERWROTE CLOSEDLIST")
+                        closedList.pop(newCoord)
+                        heap.heappush(frontier,(currentG + heuristic(newCoord, goal),(newCoord, current)))
+                        gVals.update({newCoord: currentG})
+                else:
+                    heap.heappush(frontier,(currentG + heuristic(newCoord, goal),(newCoord, current)))
+                    gVals.update({newCoord: currentG})
+    return False, None, ()
+            
+
+def returnZero(start, end):
+    return 0
+
 def scan(grid, coords):
     """
     Performs safety checks on nodes before they're added to the frontier
@@ -118,29 +166,60 @@ def makePath(start, goal, closedList):
 
 def main():
     print("Testing algorithms.py")
-    dimm = 10
-    start = (0,0)
-    goal = (dimm-1,dimm-1)
-    grid = gd.generateGrid(dimm, .2)
-    print(grid)
+    heuristic = returnZero
+    runs = 100
+    printOn = True
+    if (runs > 5): printOn = False #5 is a magic number
+    
+    for i in range(runs):
+        heuristic = returnZero
+        dimm = 5
+        start = (0,0)
+        goal = (dimm-1,dimm-1)
+        grid = gd.generateGrid(dimm, .2)
+        if (printOn): print(grid)
 
-    solved, solvedPath = DFS(grid, start, goal)
-    if (solved):
-        print("DFS: \t", solvedPath)
+        solved, solvedPathDFS = DFS(grid, start, goal)
+        solved, solvedPathBFS, TestingDataBFS = BFS(grid, start, goal)
+        solved, solvedPathBDBFS = BDBFS(grid, start, goal)
+        solved, solvedPathaStar, testingDataaStar = aStar(grid, start, goal, heuristic)
 
-    solved, solvedPath2 = BFS(grid, start, goal)
-    if (solved):
-        print("BFS: \t", solvedPath2)
+        exploredBFS = frontierBFS = exploredaStar = 0
+        if (solved):
+            if(printOn):
+                print("DFS: \t" + str(solvedPathDFS))
+                print("BFS: \t" + str(solvedPathBFS))
+                print("BDBFS: \t", solvedPathBDBFS)
+                print("aStar: \t", solvedPathaStar)
+            
+            lenaStar,exploredBFS, frontierBFS = TestingDataBFS
+            lenBFS,exploredaStar, _ = testingDataaStar
+            exploredBFS = set(exploredBFS)
+            frontierBFS = [v for v,_ in frontierBFS]
+            frontierBFS = set(frontierBFS)
+            exploredaStar = set(exploredaStar)
 
-    solved, solvedPath3 = BDBFS(grid, start, goal)
-    if (solved):
-        print("BDBFS: \t", solvedPath3)
-    else: print("Unsolvable!")
+        else: 
+            if (printOn): print("Unsolvable!")
 
-    if (solved): #assertions
-        assert ( len(solvedPath2) == len(solvedPath3) ), (
-            "BFS and BDBFS are not consistent!")
-        assert ( len(solvedPath) >= len(solvedPath2) ), (
-            "DFS found shorter route than BFS!")
+        if (solved): #assertions
+            assert ( len(solvedPathBFS) == len(solvedPathBDBFS) ), (
+                "BFS and BDBFS are not consistent!")
+            assert ( len(solvedPathDFS) >= len(solvedPathBFS) ), (
+                "DFS found shorter route than BFS!")
+            assert ( len(solvedPathaStar) == len(solvedPathBFS) ) , (
+                "aStar or BFS not optimal!"
+            )
+            #determines, when using no heuristic, whether aStar is equal to BFS
+            assert ( 
+                not (heuristic == returnZero) or 
+                exploredaStar.difference( exploredBFS.union(frontierBFS) ) == set()
+                #we have to include the frontier of BFS due to queue differences
+                ), (
+                "aStar with heuristic of h(x) = 0 not identical to BFS! \n"+
+                "aStar: " + str(lenaStar) + ", BFS: " + str(lenBFS) + "\n" +
+                str(exploredaStar) + "\n" + str(exploredBFS) + "\n" +
+                str(frontierBFS) + "\n" + str(grid)
+            )
 
 if (__name__ == "__main__"): main()
