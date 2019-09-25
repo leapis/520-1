@@ -89,13 +89,14 @@ def BDBFS(grid, start, goal):
                 goalFrontier.append(((newY, newX), current))
     return False, None
 
-def aStar(grid, start, goal, heuristic):
+def aStar(grid, start, goal, heuristic, tieSort=False):
     """
     Runs an A* search from start to goal on the given grid
     @params grid: selecte grid, start: starting coordinates, goal: goal coordinates
     @return True/False if a path exists or not, order of nodes used to traverse path if one exists,
     tuple containing output debug data (length closedList, list of explored nodes, frontier)
     """
+    tieSort = tieSort
     frontier = []
     heap.heappush(frontier,(0,(start, None)))
     closedList = dict()
@@ -104,7 +105,23 @@ def aStar(grid, start, goal, heuristic):
     current = start
     exploredNodes = []
     while (len(frontier) > 0):
-        _, (current, previous) = heap.heappop(frontier)
+        candidates = [heap.heappop(frontier)]
+        value, _ = candidates[0]
+        top = candidates[0]
+
+        if( tieSort and len(frontier) > 0):
+            nextOnFrontierValue, _ = frontier[0]
+            i = 0
+            while (len(frontier) > 0 and value == nextOnFrontierValue and i < goal[0]):
+                candidates.append(heap.heappop(frontier))
+                i+= 1
+            top = max(candidates, key= lambda x: gVals.get(x[1][0]))
+            candidates.remove(top)
+            while(len(candidates) > 0):
+                heap.heappush(frontier, candidates[-1])
+                del candidates[-1]
+
+        _, (current, previous) = top
         exploredNodes.append(current)
         y, x = current
         closedList.update({current: previous})
@@ -129,7 +146,7 @@ def aStar(grid, start, goal, heuristic):
                 else:
                     heap.heappush(frontier,(currentG + heuristic(newCoord, goal),(newCoord, current)))
                     gVals.update({newCoord: currentG})
-    return False, None, ()
+    return False, None, (closedList)
             
 def scan(grid, coords):
     """
@@ -160,7 +177,7 @@ def makePath(start, goal, closedList):
     path.reverse()
     return path
 
-def main():
+def testOne():
     print("Testing algorithms.py")
     heuristic = h.Manhattan
     runs = 1
@@ -227,4 +244,24 @@ def main():
     print(BFSCount)
     print(aStarCount)
 
-if (__name__ == "__main__"): main()
+def testTwo():
+    heuristic = h.Manhattan
+    p = 0.3
+    dimm = 50
+    start = (0,0)
+    goal = (dimm-1,dimm-1)
+    grid = gd.generateGrid(dimm, p)
+    solved1, solvedPathaStar1, testingDataaStar1 = aStar(grid, start, goal, heuristic, tieSort=False)
+    solved2, solvedPathaStar2, testingDataaStar2 = aStar(grid, start, goal, heuristic, tieSort=True)
+    assert (solved1 == solved2)
+    if(solved1):
+        (_,t1,_) = testingDataaStar1
+        (_,t2,_) = testingDataaStar2
+        print(len(t1), " : " ,len(t2))
+    else:
+        print(len(testingDataaStar1), ":", len(testingDataaStar2))
+        print("unsolved")
+    print(str(grid))
+
+
+if (__name__ == "__main__"): testTwo()
