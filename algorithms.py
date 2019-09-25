@@ -93,7 +93,8 @@ def aStar(grid, start, goal, heuristic):
     """
     Runs an A* search from start to goal on the given grid
     @params grid: selecte grid, start: starting coordinates, goal: goal coordinates
-    @return True/False if a path exists or not, order of nodes used to traverse path if one exists
+    @return True/False if a path exists or not, order of nodes used to traverse path if one exists,
+    tuple containing output debug data (length closedList, list of explored nodes, frontier)
     """
     frontier = []
     heap.heappush(frontier,(0,(start, None)))
@@ -103,7 +104,7 @@ def aStar(grid, start, goal, heuristic):
     current = start
     exploredNodes = []
     while (len(frontier) > 0):
-        f, (current, previous) = heap.heappop(frontier)
+        _, (current, previous) = heap.heappop(frontier)
         exploredNodes.append(current)
         y, x = current
         closedList.update({current: previous})
@@ -115,15 +116,13 @@ def aStar(grid, start, goal, heuristic):
             newY, newX = newCoord
             if(scan(grid, (newY, newX))):
                 if (newCoord in [k for _, (k, _) in frontier]): #if discovered node is already in open list
-                    if(gVals.get(newCoord) > currentG): print (currentG, "OVERWRITE OL!")
-                    if(gVals.get(newCoord) > currentG):
+                    if(gVals.get(newCoord) > currentG): #in case of admissible but not consistent heuristic
                         oldIndex = [z for _, (z, _) in frontier].index(newCoord)
                         frontier[oldIndex] = (currentG + heuristic(newCoord, goal), (newCoord, current))
                         heap.heapify(frontier)
                         gVals.update({newCoord: currentG})
-                elif (newCoord in closedList):
+                elif (newCoord in closedList): #in case of admissible but not consistent heuristic
                     if(gVals.get(newCoord) > currentG):
-                        print("OVERWROTE CLOSEDLIST")
                         closedList.pop(newCoord)
                         heap.heappush(frontier,(currentG + heuristic(newCoord, goal),(newCoord, current)))
                         gVals.update({newCoord: currentG})
@@ -164,7 +163,7 @@ def makePath(start, goal, closedList):
 def main():
     print("Testing algorithms.py")
     heuristic = h.Manhattan
-    runs = 100
+    runs = 1
     printOn = True
     if (runs > 5): printOn = False #5 is a magic number
     BFSCount = 0
@@ -172,7 +171,7 @@ def main():
     
     for _ in range(runs):
         p = 0.3
-        dimm = 30
+        dimm = 10
         start = (0,0)
         goal = (dimm-1,dimm-1)
         grid = gd.generateGrid(dimm, p)
@@ -184,7 +183,6 @@ def main():
         solved, solvedPathaStar, testingDataaStar = aStar(grid, start, goal, heuristic)
 
         exploredBFS = frontierBFS = exploredaStar = 0
-        printOn = False
         if (solved):
             if(printOn):
                 print("DFS: \t" + str(solvedPathDFS))
