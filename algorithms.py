@@ -2,6 +2,7 @@ import numpy as np
 import grid as gd
 import heapq as heap
 import heuristics as h
+import math
 
 def DFS(grid, start, goal):
     """
@@ -89,13 +90,14 @@ def BDBFS(grid, start, goal):
                 goalFrontier.append(((newY, newX), current))
     return False, None
 
-def aStar(grid, start, goal, heuristic, tieSort=False):
+def aStar(grid, start, goal, heuristic, tieSort=False, fire=False, fireLimit=0, q=0):
     """
     Runs an A* search from start to goal on the given grid
     @params grid: selecte grid, start: starting coordinates, goal: goal coordinates
     @return True/False if a path exists or not, order of nodes used to traverse path if one exists,
     tuple containing output debug data (length closedList, list of explored nodes, frontier)
     """
+    previousGrids = {}
     tieSort = tieSort
     frontier = []
     heap.heappush(frontier,(0,(start, None)))
@@ -131,7 +133,11 @@ def aStar(grid, start, goal, heuristic, tieSort=False):
         currentG = gVals.get(current) + 1
         for newCoord in ( (y, x-1), (y-1, x), (y, x+1), (y+1, x) ):
             newY, newX = newCoord
-            if(scan(grid, (newY, newX))):
+            allowedMove = scan(grid, (newY, newX))
+            if (fire):
+                allowedMove = scan(grid, (newY, newX), True, previousGrids, fireLimit, currentG, q)
+                #print(allowedMove, previousGrids.get(currentG)[y][x], fireLimit)
+            if(allowedMove):
                 if (newCoord in [k for _, (k, _) in frontier]): #if discovered node is already in open list
                     if(gVals.get(newCoord) > currentG): #in case of admissible but not consistent heuristic
                         oldIndex = [z for _, (z, _) in frontier].index(newCoord)
@@ -148,7 +154,7 @@ def aStar(grid, start, goal, heuristic, tieSort=False):
                     gVals.update({newCoord: currentG})
     return False, None, (closedList)
             
-def scan(grid, coords):
+def scan(grid, coords, fire=False, previousGrids={}, fireLimit=0, g=-1, q=0):
     """
     Performs safety checks on nodes before they're added to the frontier
     @params grid: selected grid, coords: coordinates of point to be scanned
@@ -162,6 +168,9 @@ def scan(grid, coords):
         return False
     if (int(grid[y][x]) == gd.BLOCKED): #if node is blocked
         return False
+    if (fire):
+        if(generateFireGrids(previousGrids, grid, g, q)[y][x] > fireLimit):
+            return False
     return True
 
 def makePath(start, goal, closedList):
@@ -177,6 +186,30 @@ def makePath(start, goal, closedList):
     path.reverse()
     return path
 
+def generateFireGrids(previousGrids, grid, g, q):
+    if(g == 0):
+        previousGrids[g] = grid
+        return grid
+    fireGrid = []
+    if(g in previousGrids):
+        return previousGrids[g]
+    if (g-1 not in previousGrids):
+        fireGrid = generateFireGrids(previousGrids, grid, g-1, q)
+    fireGrid = gd.grid_copy(previousGrids[g-1])
+    for i in range(len(fireGrid)):
+        for j in range(len(fireGrid)):
+            fireGrid[i][j] = fireScan(previousGrids[g-1], (i, j), q)
+    previousGrids[g] = fireGrid
+    return fireGrid
+
+def fireScan(grid, coords, q):
+    i, j = coords
+    value = grid[i][j]
+    for i,j in [(i+1,j), (i-1,j), (i,j+1), (i,j-1)]:
+        if(scan(grid, (i,j))):
+            value = value + (1 - value) * (1 - (1 - q)) * grid[i][j]
+    return value
+    
 def testOne():
     print("Testing algorithms.py")
     heuristic = h.Manhattan
@@ -250,7 +283,7 @@ def testTwo():
     dimm = 50
     start = (0,0)
     goal = (dimm-1,dimm-1)
-    grid = gd.generateGrid(dimm, p)
+    grid = gd.generateFireGrid(dimm, p)
     solved1, solvedPathaStar1, testingDataaStar1 = aStar(grid, start, goal, heuristic, tieSort=False)
     solved2, solvedPathaStar2, testingDataaStar2 = aStar(grid, start, goal, heuristic, tieSort=True)
     assert (solved1 == solved2)
@@ -263,5 +296,23 @@ def testTwo():
         print("unsolved")
     print(str(grid))
 
+def testThree():
+    p = 0.3
+    dimm = 10
+    grid = gd.generateFireGrid(dimm, 0)
+    previousFireGrids = dict()
+    print(generateFireGrids(previousFireGrids, grid, 1, 0.3))
 
-if (__name__ == "__main__"): testTwo()
+def testFour():
+    start = (0,0)
+    p = 0.3
+    dimm = 5
+    goal = (dimm-1, dimm-1)
+    heuristic = h.Manhattan
+    grid = gd.generateFireGrid(dimm, 0)
+    previousFireGrids = dict()
+    solved, solvedPath, testingData = aStar(grid, start, goal, heuristic, True, True, 0.5, 0.3)
+    print(generateFireGrids(previousFireGrids, grid, len(solvedPath) - 1, 0.3))
+    print(solvedPath)
+
+if (__name__ == "__main__"): testFour()

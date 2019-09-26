@@ -29,6 +29,14 @@ def generateFireGrid(dimm, p):
     grid[0][dimm-1] = FIRE
     return grid
 
+def grid_copy(grid):
+    dimm = len(grid)
+    newGrid = np.zeros((dimm, dimm))
+    for i in range(dimm):
+        for j in range(dimm):
+            newGrid[i][j] = grid[i][j]
+    return newGrid
+
 def main():
     """Testing method"""
     print("Testing grid.py")
