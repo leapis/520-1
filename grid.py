@@ -27,6 +27,7 @@ def generateGrid(dimm, p):
 def generateFireGrid(dimm, p):
     grid = generateGrid(dimm, p)
     grid[0][dimm-1] = FIRE
+    grid[dimm-1][0] = UNBLOCKED
     return grid
 
 def grid_copy(grid):

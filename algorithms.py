@@ -3,6 +3,7 @@ import grid as gd
 import heapq as heap
 import heuristics as h
 import math
+import random
 
 def DFS(grid, start, goal):
     """
@@ -90,14 +91,13 @@ def BDBFS(grid, start, goal):
                 goalFrontier.append(((newY, newX), current))
     return False, None
 
-def aStar(grid, start, goal, heuristic, tieSort=False, fire=False, fireLimit=0, q=0):
+def aStar(grid, start, goal, heuristic, tieSort=False, fire=False, fireLimit=0, q=0, previousGrids={}):
     """
     Runs an A* search from start to goal on the given grid
     @params grid: selecte grid, start: starting coordinates, goal: goal coordinates
     @return True/False if a path exists or not, order of nodes used to traverse path if one exists,
     tuple containing output debug data (length closedList, list of explored nodes, frontier)
     """
-    previousGrids = {}
     tieSort = tieSort
     frontier = []
     heap.heappush(frontier,(0,(start, None)))
@@ -128,7 +128,7 @@ def aStar(grid, start, goal, heuristic, tieSort=False, fire=False, fireLimit=0, 
         y, x = current
         closedList.update({current: previous})
         if (current == goal):
-            return (True, makePath(start, goal, closedList), (len(closedList), exploredNodes, frontier))
+            return (True, makePath(start, goal, closedList), (len(closedList), exploredNodes, frontier, previousGrids))
         #scan surrounding elements and add them to closed list
         currentG = gVals.get(current) + 1
         for newCoord in ( (y, x-1), (y-1, x), (y, x+1), (y+1, x) ):
@@ -204,11 +204,47 @@ def generateFireGrids(previousGrids, grid, g, q):
 
 def fireScan(grid, coords, q):
     i, j = coords
+    if (grid[i][j] == gd.FIRE):
+        return gd.FIRE
+    if (grid[i][j] == gd.BLOCKED):
+        return gd.BLOCKED
     value = grid[i][j]
     for i,j in [(i+1,j), (i-1,j), (i,j+1), (i,j-1)]:
         if(scan(grid, (i,j))):
             value = value + (1 - value) * (1 - (1 - q)) * grid[i][j]
     return value
+
+def fireEval(grid, path, q):
+
+    evalGrid = gd.grid_copy(grid)
+    for i in range(len(path)):
+        current = path[i]
+        y, x = current
+        if (evalGrid[y][x] == gd.FIRE):
+            #rerun A* looking for an alternative route
+            dimm = len(evalGrid)
+            solved, newPath, _ = aStar(evalGrid, path[i-1], (dimm - 1, dimm - 1), h.Manhattan, False, True, 0.7, q)
+            if (solved):
+                return fireEval(grid, newPath, q)
+            else:
+                return False, evalGrid 
+        evalGrid = fireAdvance(evalGrid, q)
+    return True, evalGrid
+
+def fireAdvance(grid, q):
+    nextGrid = gd.grid_copy(grid)
+    for i in range(len(nextGrid)):
+        for j in range(len(nextGrid)):
+            if(nextGrid[i][j] != gd.FIRE and nextGrid[i][j] != gd.BLOCKED):
+                surrounding = 0
+                for y,x in [(i+1,j), (i-1,j), (i,j+1), (i,j-1)]:
+                    if ( scan(grid, (y,x)) and  grid[y][x] == gd.FIRE):
+                        surrounding += 1
+                if (random.random() < (1 - math.pow(1 - q, surrounding))):
+                    nextGrid[i][j] = gd.FIRE
+    return nextGrid
+                
+        
     
 def testOne():
     print("Testing algorithms.py")
@@ -315,4 +351,64 @@ def testFour():
     print(generateFireGrids(previousFireGrids, grid, len(solvedPath) - 1, 0.3))
     print(solvedPath)
 
-if (__name__ == "__main__"): testFour()
+    print(fireEval(grid, solvedPath, 0.3))
+
+def testFive():
+    for q in np.arange(0, 1.04, 0.05):
+        runs = 100
+        success = 0
+        tries = 0
+        while (tries < runs):
+            #thresh = 0.5
+            start = (0,0)
+            dimm = 30
+            bottomLeft = (dimm - 1, 0)
+            upperRight = (0, dimm - 1)
+            p = 0.2
+            goal = (dimm-1, dimm-1)
+            heuristic = h.Manhattan
+            grid = gd.generateFireGrid(dimm, p)
+            #print(grid)
+            previousFireGrids = dict()
+            #solvedStrong, solvedPath, testingData = aStar(grid, start, goal, heuristic, False, True, thresh, q)
+            solved, _ = BDBFS(grid, start, goal)
+            fireHasPath, _ = BDBFS(grid, bottomLeft, upperRight)
+            if (solved and fireHasPath):
+                listings = [i for i in np.arange(0,1.05,0.05)]
+                for i in listings:
+                    _, solvedPath, testData = aStar(grid, start, goal, h.Manhattan, False, True, i, q, previousFireGrids)
+                    if (solvedPath):
+                        _, _, _, previousFireGrids = testData
+                        #print(listings)
+                        tries += 1
+                        fireSolved, _ = fireEval(grid, solvedPath, q)
+                        if (fireSolved): 
+                            success += 1
+                        break
+                            #print(grid)
+                            #print(solvedPath)
+                
+        print("for", q, ":", success/tries, " : ", success, "/", tries)
+
+def testSix():
+    runs = 10
+    for heuristic in [h.Euc]:#[h.returnZero, h.Manhattan, h.Euc]:
+        for p in np.arange(0, 0.41, 0.05):
+            count = 0
+            numSolved = 0
+            while (numSolved < runs):
+                dimm = 100
+                start = (0,0)
+                goal = (dimm-1,dimm-1)
+                grid = gd.generateFireGrid(dimm, p)
+                solved, _ = BDBFS(grid, start, goal)
+                if(solved):
+                    solved, solvedPath, testingData = aStar(grid, start, goal, heuristic, True)
+                    numSolved += 1
+                    closedLen, *_ = testingData
+                    count += closedLen
+            print(p, " : ", count/runs)
+            
+
+
+if (__name__ == "__main__"): testSix()
