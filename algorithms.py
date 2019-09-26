@@ -2,8 +2,69 @@ import numpy as np
 import grid as gd
 import heapq as heap
 import heuristics as h
+from matplotlib import pyplot
+import random
 import math
 import random
+
+def hardestDFSMaze(dimm):
+    """
+    Attempts to find the maze that causes DFS to have the largest fringe
+    @params dimm: the dimension of the desired maze
+    @return The hardest maze
+    """
+    bestFringe = 0
+    bestMaze = []
+    for i in range(8): #Random restart loop. We will take the best maximum out of every restart
+        print(i, flush=True)
+        maze = gd.generateSolvableGrid(dimm, .3, DFS)
+        largestFringe = 0
+        hardestMaze = maze
+        time = 1
+        while time < 20000: #This is our search loop, we have this many iterations to find a local maximum
+            _, path, fringeSize = DFS(maze, (0, 0), (dimm-1, dimm-1))
+            #This if represents taking a step into a new state in our local search
+            #We always step forward if its better, or with the simulated annealing probability function discussed in class
+            if fringeSize >= largestFringe or random.random() < math.exp(-abs(fringeSize - largestFringe) * time / 200):
+                largestFringe = fringeSize
+                hardestMaze = maze
+
+            maze = mutateMaze(maze, DFS, path)
+            time += 1
+
+        #This tracks the best local maximum we've found so far
+        if largestFringe > bestFringe:
+            bestFringe = largestFringe
+            bestMaze = hardestMaze
+
+    return hardestMaze
+
+def mutateMaze(maze, algorithm, path):
+    """
+    Changes the given maze by changing either a space to a wall or a wall to a space
+    @params maze: given maze to be mutate, algorithm: which algorithm to use to check solvability,
+        path: current path (to be used to influence mutation)
+    @return the new maze
+    """
+    dimm = len(maze)-1
+    #This loop keeps us from creating an unsolvable maze, it returns once it finds a solvable one
+    while True:
+        newMaze = maze.copy()
+        x = 0
+        y = 0
+        #This loop attempts to find a random place in the maze to mutate that won't violate any rules
+        while x == 0 and y == 0 or x == dimm and y == dimm or x < 0 or y < 0 or x > dimm or y > dimm:
+            if random.random() < 0.8: #Take a purely random location
+                x = random.randint(0, dimm)
+                y = random.randint(0, dimm)
+            else: #Take a location near the current path, since a mutation there is more likely to increase maze difficulty
+                deviation = [(0, 0), (0, 1), (1, 0), (-1, 0), (0, -1)]
+                x, y = tuple(sum(x) for x in zip(random.choice(path), random.choice(deviation)))
+        newMaze[y][x] = -1 if newMaze[y][x] == 0 else 0
+        solved, _, _ = algorithm(newMaze, (0, 0), (dimm, dimm))
+        if solved: #As long as the maze is solvable, we're good to return
+            return newMaze
+
 
 def DFS(grid, start, goal):
     """
@@ -14,18 +75,20 @@ def DFS(grid, start, goal):
     frontier = [(start, None)] #acts as stack
     closedList = dict() #list of nodes already explored
     current = start #our curent node
+    largestFringe = 0
     while (len(frontier) > 0):
+        largestFringe = max(largestFringe, len(frontier))
         current, previous = frontier.pop(0)
         y, x = current
         closedList.update({current: previous})
         if (current == goal):
-            return (True, makePath(start, goal, closedList))
+            return (True, makePath(start, goal, closedList), largestFringe)
         #scan surrounding elements and add them to the closed list
         for newCoord in ((y, x-1), (y-1, x), (y, x+1), (y+1, x)): #it's ordered in this way to make it nice and short in a lot of cases, but priority doesn't really matter for DFS
             newY, newX = newCoord
             if ((newY, newX) not in closedList and (newY, newX) not in [c for (c,_) in frontier] and scan(grid, (newY, newX))):
                 frontier.insert(0,((newY, newX), current))
-    return False, None
+    return False, None, largestFringe
 
 def BFS(grid, start, goal):
     """
@@ -154,7 +217,7 @@ def aStar(grid, start, goal, heuristic, tieSort=False, fire=False, fireLimit=0, 
                     heap.heappush(frontier,(currentG + heuristic(newCoord, goal),(newCoord, current)))
                     gVals.update({newCoord: currentG})
     return False, None, (closedList) #this will be reached if frontier list runs out of elements
-            
+
 def scan(grid, coords, fire=False, previousGrids={}, fireLimit=0, g=-1, q=0):
     """
     Performs safety checks on nodes before they're added to the frontier
@@ -225,7 +288,6 @@ def fireScan(grid, coords, q):
             value = value + (1 - value) * (1 - (1 - q)) * grid[i][j] 
             #chance a node is on fire is the chance that it was already on fire + chance that it wasn't * likelihood that the node next to it is * chance it catches on fire if the node next to it is
     return value
-
 def fireEval(grid, path, q):
     """
     This is the function we use to run A* through the fire grid
@@ -272,16 +334,37 @@ It may contain examples of how to run our functions, but it is just driver code-
 nothing below this point is important for the implementation of our algorithms.
 As such, it is not commented extensively. Feel free to ignore.
 """
-    
+
 def testOne():
     print("Testing algorithms.py")
+
+    hardestMaze = hardestDFSMaze(50)
+    _, path, fringeSize = DFS(hardestMaze, (0, 0), (49, 49))
+    for y, x in path:
+        hardestMaze[y][x] = 3
+    pyplot.matshow(hardestMaze)
+    pyplot.title(fringeSize)
+    pyplot.show()
+    for y, x in path:
+        hardestMaze[y][x] = 0
+
+
+    dimm = 10
+    start = (0,0)
+    goal = (dimm-1,dimm-1)
+    grid = gd.generateGrid(dimm, .2)
+    print(grid)
+
+    solved, solvedPath, _ = DFS(grid, start, goal)
+    if (solved):
+        print("DFS: \t", solvedPath)
     heuristic = h.Manhattan
     runs = 1
     printOn = True
     if (runs > 5): printOn = False #5 is a magic number
     BFSCount = 0
     aStarCount = 0
-    
+
     for _ in range(runs):
         p = 0.3
         dimm = 10
@@ -302,7 +385,7 @@ def testOne():
                 print("BFS: \t" + str(solvedPathBFS))
                 print("BDBFS: \t", solvedPathBDBFS)
                 print("aStar: \t", solvedPathaStar)
-            
+
             lenaStar,exploredBFS, frontierBFS = TestingDataBFS
             lenBFS,exploredaStar, frontieraStar = testingDataaStar
             exploredBFS = set(exploredBFS)
@@ -311,13 +394,13 @@ def testOne():
             exploredaStar = set(exploredaStar)
             frontieraStar = [v for _,(v,_) in frontieraStar]
             frontieraStar = set(frontieraStar)
-        else: 
+        else:
             if (printOn): print("Unsolvable!")
 
         if (solved):
             BFSCount += len(exploredBFS)#len(exploredBFS.union(frontierBFS))
             aStarCount += len(exploredaStar)#len(exploredaStar.union(frontieraStar))
-        
+
         if (solved): #assertions
             assert ( len(solvedPathBFS) == len(solvedPathBDBFS) ), (
                 "BFS and BDBFS are not consistent!")
@@ -327,8 +410,8 @@ def testOne():
                 "aStar or BFS not optimal!"
             )
             #determines, when using no heuristic, whether aStar is equal to BFS
-            assert ( 
-                not (heuristic == h.returnZero) or 
+            assert (
+                not (heuristic == h.returnZero) or
                 exploredaStar.difference( exploredBFS.union(frontierBFS) ) == set()
                 #we have to include the frontier of BFS due to queue differences
                 ), (
