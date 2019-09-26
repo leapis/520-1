@@ -24,6 +24,15 @@ def generateGrid(dimm, p):
     grid[dimm-1][dimm-1] = UNBLOCKED
     return grid
 
+def generateSolvableGrid(dimm, p, algorithm):
+    grid = generateGrid(dimm, p)
+    solved, _, _ = algorithm(grid, (0, 0), (dimm-1, dimm-1))
+    while not solved:
+        grid = generateGrid(dimm, p)
+        solved, _, _ = algorithm(grid, (0, 0), (dimm-1, dimm-1))
+
+    return grid
+
 
 def main():
     """Testing method"""

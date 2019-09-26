@@ -1,5 +1,57 @@
 import numpy as np
 import grid as gd
+import random
+import math
+
+def hardestDFSMaze(dimm):
+    """
+    TODO: Document
+    """
+    bestFringe = 0
+    bestMaze = []
+    for i in range(20):
+        maze = gd.generateSolvableGrid(dimm, .3, DFS)
+        largestFringe = 0
+        hardestMaze = maze
+        time = 1
+        while time < 50000:
+            _, path, fringeSize = DFS(maze, (0, 0), (dimm-1, dimm-1))
+            if fringeSize >= largestFringe or random.random() < math.exp(-abs(fringeSize - largestFringe) * time / 1000):
+                largestFringe = fringeSize
+                hardestMaze = maze
+
+            maze = mutateMaze(maze, DFS, path)
+            time += 1
+
+        print(hardestMaze)
+        print(bestMaze, flush = True)
+        if largestFringe > bestFringe:
+            bestFringe = largestFringe
+            bestMaze = hardestMaze
+
+    return hardestMaze
+
+def mutateMaze(maze, algorithm, path):
+    """
+    TODO: Doc
+    """
+    dimm = len(maze)-1
+    while True:
+        newMaze = maze
+        x = 0
+        y = 0
+        while x == 0 and y == 0 or x == dimm and y == dimm or x < 0 or y < 0 or x > dimm or y > dimm:
+            if random.random() < 0.1:
+                x = random.randint(0, dimm)
+                y = random.randint(0, dimm)
+            else:
+                deviation = [(0, 0), (0, 1), (1, 0), (-1, 0), (0, -1)]
+                x, y = tuple(sum(x) for x in zip(random.choice(path), random.choice(deviation)))
+        newMaze[y][x] = -1 if newMaze[y][x] == 0 else 0
+        solved, _, _ = algorithm(newMaze, (0, 0), (dimm, dimm))
+        if solved:
+            return newMaze
+
 
 def DFS(grid, start, goal):
     """
@@ -10,19 +62,21 @@ def DFS(grid, start, goal):
     frontier = [(start, None)] #acts as stack
     closedList = dict() #list of nodes already explored
     current = start #our curent node
+    largestFringe = 0
     while (len(frontier) > 0):
+        largestFringe = max(largestFringe, len(frontier))
         #print(frontier)
         current, previous = frontier.pop(0)
         y, x = current
         closedList.update({current: previous})
         if (current == goal):
-            return (True, makePath(start, goal, closedList))
+            return (True, makePath(start, goal, closedList), largestFringe)
         #scan surrounding elements and add them to the closed list
         for newCoord in ((y, x-1), (y-1, x), (y, x+1), (y+1, x)): #it's ordered in this way to make it nice and short in a lot of cases, but priority doesn't really matter for DFS
             newY, newX = newCoord
             if ((newY, newX) not in closedList and (newY, newX) not in [c for (c,_) in frontier] and scan(grid, (newY, newX))):
                 frontier.insert(0,((newY, newX), current))
-    return False, None
+    return False, None, largestFringe
 
 def BFS(grid, start, goal):
     """
@@ -117,6 +171,7 @@ def makePath(start, goal, closedList):
     return path
 
 def main():
+    hardestDFSMaze(9)
     print("Testing algorithms.py")
     dimm = 10
     start = (0,0)
@@ -124,7 +179,7 @@ def main():
     grid = gd.generateGrid(dimm, .2)
     print(grid)
 
-    solved, solvedPath = DFS(grid, start, goal)
+    solved, solvedPath, _ = DFS(grid, start, goal)
     if (solved):
         print("DFS: \t", solvedPath)
 
