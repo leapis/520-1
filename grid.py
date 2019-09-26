@@ -24,6 +24,10 @@ def generateGrid(dimm, p):
     grid[dimm-1][dimm-1] = UNBLOCKED
     return grid
 
+def generateFireGrid(dimm, p):
+    grid = generateGrid(dimm, p)
+    grid[0][dimm-1] = FIRE
+    return grid
 
 def main():
     """Testing method"""
