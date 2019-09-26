@@ -1,5 +1,7 @@
 import numpy as np
 import grid as gd
+import heapq as heap
+import heuristics as h
 from matplotlib import pyplot
 import random
 import math
@@ -75,7 +77,6 @@ def DFS(grid, start, goal):
     largestFringe = 0
     while (len(frontier) > 0):
         largestFringe = max(largestFringe, len(frontier))
-        #print(frontier)
         current, previous = frontier.pop(0)
         y, x = current
         closedList.update({current: previous})
@@ -98,19 +99,20 @@ def BFS(grid, start, goal):
     frontier = [(start, None)] #acts as queue
     closedList = dict() #list of nodes already explored
     current = start #our curent node
+    exploredNodes = []
     while (len(frontier) > 0):
-        #print(frontier)
         current, previous = frontier.pop(0)
+        exploredNodes.append(current)
         y, x = current
         closedList.update({current: previous})
         if (current == goal):
-            return (True, makePath(start, goal, closedList))
+            return (True, makePath(start, goal, closedList), (len(closedList), exploredNodes, frontier))
         #scan surrounding elements and add them to the closed list
         for newCoord in ((y, x-1), (y-1, x), (y, x+1), (y+1, x)): #it's ordered in this way to make it nice and short in a lot of cases, but priority doesn't really matter for DFS
             newY, newX = newCoord
             if ((newY, newX) not in closedList and (newY, newX) not in [c for (c,_) in frontier] and scan(grid, (newY, newX))):
                 frontier.append(((newY, newX), current))
-    return False, None
+    return False, None, ()
 
 def BDBFS(grid, start, goal):
     """
@@ -151,7 +153,71 @@ def BDBFS(grid, start, goal):
                 goalFrontier.append(((newY, newX), current))
     return False, None
 
-def scan(grid, coords):
+def aStar(grid, start, goal, heuristic, tieSort=False, fire=False, fireLimit=0, q=0):
+    """
+    Runs an A* search from start to goal on the given grid
+    @params grid: selecte grid, start: starting coordinates, goal: goal coordinates
+    @return True/False if a path exists or not, order of nodes used to traverse path if one exists,
+    tuple containing output debug data (length closedList, list of explored nodes, frontier)
+    """
+    previousGrids = {}
+    tieSort = tieSort
+    frontier = []
+    heap.heappush(frontier,(0,(start, None)))
+    closedList = dict()
+    gVals = dict()
+    gVals.update({start: 0})
+    current = start
+    exploredNodes = []
+    while (len(frontier) > 0):
+        candidates = [heap.heappop(frontier)]
+        value, _ = candidates[0]
+        top = candidates[0]
+
+        if( tieSort and len(frontier) > 0):
+            nextOnFrontierValue, _ = frontier[0]
+            i = 0
+            while (len(frontier) > 0 and value == nextOnFrontierValue and i < goal[0]):
+                candidates.append(heap.heappop(frontier))
+                i+= 1
+            top = max(candidates, key= lambda x: gVals.get(x[1][0]))
+            candidates.remove(top)
+            while(len(candidates) > 0):
+                heap.heappush(frontier, candidates[-1])
+                del candidates[-1]
+
+        _, (current, previous) = top
+        exploredNodes.append(current)
+        y, x = current
+        closedList.update({current: previous})
+        if (current == goal):
+            return (True, makePath(start, goal, closedList), (len(closedList), exploredNodes, frontier))
+        #scan surrounding elements and add them to closed list
+        currentG = gVals.get(current) + 1
+        for newCoord in ( (y, x-1), (y-1, x), (y, x+1), (y+1, x) ):
+            newY, newX = newCoord
+            allowedMove = scan(grid, (newY, newX))
+            if (fire):
+                allowedMove = scan(grid, (newY, newX), True, previousGrids, fireLimit, currentG, q)
+                #print(allowedMove, previousGrids.get(currentG)[y][x], fireLimit)
+            if(allowedMove):
+                if (newCoord in [k for _, (k, _) in frontier]): #if discovered node is already in open list
+                    if(gVals.get(newCoord) > currentG): #in case of admissible but not consistent heuristic
+                        oldIndex = [z for _, (z, _) in frontier].index(newCoord)
+                        frontier[oldIndex] = (currentG + heuristic(newCoord, goal), (newCoord, current))
+                        heap.heapify(frontier)
+                        gVals.update({newCoord: currentG})
+                elif (newCoord in closedList): #in case of admissible but not consistent heuristic
+                    if(gVals.get(newCoord) > currentG):
+                        closedList.pop(newCoord)
+                        heap.heappush(frontier,(currentG + heuristic(newCoord, goal),(newCoord, current)))
+                        gVals.update({newCoord: currentG})
+                else:
+                    heap.heappush(frontier,(currentG + heuristic(newCoord, goal),(newCoord, current)))
+                    gVals.update({newCoord: currentG})
+    return False, None, (closedList)
+
+def scan(grid, coords, fire=False, previousGrids={}, fireLimit=0, g=-1, q=0):
     """
     Performs safety checks on nodes before they're added to the frontier
     @params grid: selected grid, coords: coordinates of point to be scanned
@@ -165,6 +231,9 @@ def scan(grid, coords):
         return False
     if (int(grid[y][x]) == gd.BLOCKED): #if node is blocked
         return False
+    if (fire):
+        if(generateFireGrids(previousGrids, grid, g, q)[y][x] > fireLimit):
+            return False
     return True
 
 def makePath(start, goal, closedList):
@@ -180,7 +249,31 @@ def makePath(start, goal, closedList):
     path.reverse()
     return path
 
-def main():
+def generateFireGrids(previousGrids, grid, g, q):
+    if(g == 0):
+        previousGrids[g] = grid
+        return grid
+    fireGrid = []
+    if(g in previousGrids):
+        return previousGrids[g]
+    if (g-1 not in previousGrids):
+        fireGrid = generateFireGrids(previousGrids, grid, g-1, q)
+    fireGrid = gd.grid_copy(previousGrids[g-1])
+    for i in range(len(fireGrid)):
+        for j in range(len(fireGrid)):
+            fireGrid[i][j] = fireScan(previousGrids[g-1], (i, j), q)
+    previousGrids[g] = fireGrid
+    return fireGrid
+
+def fireScan(grid, coords, q):
+    i, j = coords
+    value = grid[i][j]
+    for i,j in [(i+1,j), (i-1,j), (i,j+1), (i,j-1)]:
+        if(scan(grid, (i,j))):
+            value = value + (1 - value) * (1 - (1 - q)) * grid[i][j]
+    return value
+
+def testOne():
     print("Testing algorithms.py")
 
     hardestMaze = hardestDFSMaze(50)
@@ -203,20 +296,107 @@ def main():
     solved, solvedPath, _ = DFS(grid, start, goal)
     if (solved):
         print("DFS: \t", solvedPath)
+    heuristic = h.Manhattan
+    runs = 1
+    printOn = True
+    if (runs > 5): printOn = False #5 is a magic number
+    BFSCount = 0
+    aStarCount = 0
 
-    solved, solvedPath2 = BFS(grid, start, goal)
-    if (solved):
-        print("BFS: \t", solvedPath2)
+    for _ in range(runs):
+        p = 0.3
+        dimm = 10
+        start = (0,0)
+        goal = (dimm-1,dimm-1)
+        grid = gd.generateGrid(dimm, p)
+        if (printOn): print(grid)
 
-    solved, solvedPath3 = BDBFS(grid, start, goal)
-    if (solved):
-        print("BDBFS: \t", solvedPath3)
-    else: print("Unsolvable!")
+        solved, solvedPathDFS = DFS(grid, start, goal)
+        solved, solvedPathBFS, TestingDataBFS = BFS(grid, start, goal)
+        solved, solvedPathBDBFS = BDBFS(grid, start, goal)
+        solved, solvedPathaStar, testingDataaStar = aStar(grid, start, goal, heuristic)
 
-    if (solved): #assertions
-        assert ( len(solvedPath2) == len(solvedPath3) ), (
-            "BFS and BDBFS are not consistent!")
-        assert ( len(solvedPath) >= len(solvedPath2) ), (
-            "DFS found shorter route than BFS!")
+        exploredBFS = frontierBFS = exploredaStar = 0
+        if (solved):
+            if(printOn):
+                print("DFS: \t" + str(solvedPathDFS))
+                print("BFS: \t" + str(solvedPathBFS))
+                print("BDBFS: \t", solvedPathBDBFS)
+                print("aStar: \t", solvedPathaStar)
 
-if (__name__ == "__main__"): main()
+            lenaStar,exploredBFS, frontierBFS = TestingDataBFS
+            lenBFS,exploredaStar, frontieraStar = testingDataaStar
+            exploredBFS = set(exploredBFS)
+            frontierBFS = [v for v,_ in frontierBFS]
+            frontierBFS = set(frontierBFS)
+            exploredaStar = set(exploredaStar)
+            frontieraStar = [v for _,(v,_) in frontieraStar]
+            frontieraStar = set(frontieraStar)
+        else:
+            if (printOn): print("Unsolvable!")
+
+        if (solved):
+            BFSCount += len(exploredBFS)#len(exploredBFS.union(frontierBFS))
+            aStarCount += len(exploredaStar)#len(exploredaStar.union(frontieraStar))
+
+        if (solved): #assertions
+            assert ( len(solvedPathBFS) == len(solvedPathBDBFS) ), (
+                "BFS and BDBFS are not consistent!")
+            assert ( len(solvedPathDFS) >= len(solvedPathBFS) ), (
+                "DFS found shorter route than BFS!")
+            assert ( len(solvedPathaStar) == len(solvedPathBFS) ) , (
+                "aStar or BFS not optimal!"
+            )
+            #determines, when using no heuristic, whether aStar is equal to BFS
+            assert (
+                not (heuristic == h.returnZero) or
+                exploredaStar.difference( exploredBFS.union(frontierBFS) ) == set()
+                #we have to include the frontier of BFS due to queue differences
+                ), (
+                "aStar with heuristic of h(x) = 0 not identical to BFS! \n"+
+                "aStar: " + str(lenaStar) + ", BFS: " + str(lenBFS) + "\n" +
+                str(exploredaStar) + "\n" + str(exploredBFS) + "\n" +
+                str(frontierBFS) + "\n" + str(grid)
+            )
+    print(BFSCount)
+    print(aStarCount)
+
+def testTwo():
+    heuristic = h.Manhattan
+    p = 0.3
+    dimm = 50
+    start = (0,0)
+    goal = (dimm-1,dimm-1)
+    grid = gd.generateFireGrid(dimm, p)
+    solved1, solvedPathaStar1, testingDataaStar1 = aStar(grid, start, goal, heuristic, tieSort=False)
+    solved2, solvedPathaStar2, testingDataaStar2 = aStar(grid, start, goal, heuristic, tieSort=True)
+    assert (solved1 == solved2)
+    if(solved1):
+        (_,t1,_) = testingDataaStar1
+        (_,t2,_) = testingDataaStar2
+        print(len(t1), " : " ,len(t2))
+    else:
+        print(len(testingDataaStar1), ":", len(testingDataaStar2))
+        print("unsolved")
+    print(str(grid))
+
+def testThree():
+    p = 0.3
+    dimm = 10
+    grid = gd.generateFireGrid(dimm, 0)
+    previousFireGrids = dict()
+    print(generateFireGrids(previousFireGrids, grid, 1, 0.3))
+
+def testFour():
+    start = (0,0)
+    p = 0.3
+    dimm = 5
+    goal = (dimm-1, dimm-1)
+    heuristic = h.Manhattan
+    grid = gd.generateFireGrid(dimm, 0)
+    previousFireGrids = dict()
+    solved, solvedPath, testingData = aStar(grid, start, goal, heuristic, True, True, 0.5, 0.3)
+    print(generateFireGrids(previousFireGrids, grid, len(solvedPath) - 1, 0.3))
+    print(solvedPath)
+
+if (__name__ == "__main__"): testFour()
