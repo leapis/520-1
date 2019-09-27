@@ -38,6 +38,47 @@ def hardestDFSMaze(dimm):
 
     return hardestMaze
 
+def hardestAStarMaze(dimm):
+    """
+    Attempts to find the maze that causes A* to have the most expanded nodes
+    @params dimm: the dimension of the desired maze
+    @return The hardest maze
+    """
+    bestExpansion = 0
+    bestMaze = []
+    for i in range(8): #Random restart loop. We will take the best maximum out of every restart
+        print(i, flush=True)
+        maze = gd.generateSolvableGrid(dimm, .3, aStarManhattan)
+        largestExpansion = 0
+        hardestMaze = maze
+        time = 1
+        while time < 20000: #This is our search loop, we have this many iterations to find a local maximum
+            _, path, info = aStarManhattan(maze, (0, 0), (dimm-1, dimm-1))
+            _, explored, _ = info
+            expansionSize = len(explored)
+            #This if represents taking a step into a new state in our local search
+            #We always step forward if its better, or with the simulated annealing probability function discussed in class
+            if expansionSize >= largestExpansion or random.random() < math.exp(-abs(expansionSize - largestExpansion) * time / 200):
+                largestExpansion = expansionSize
+                hardestMaze = maze
+
+            maze = mutateMaze(maze, aStarManhattan, path)
+            time += 1
+
+        #This tracks the best local maximum we've found so far
+        if largestExpansion > bestExpansion:
+            bestExpansion = largestExpansion
+            bestMaze = hardestMaze
+
+    return hardestMaze
+
+def aStarManhattan(maze, start, goal):
+    """
+    This function is just an alias to running aStar with the Manhattan heuristic for the purpose of
+    retaining one mutateMaze implementation
+    """
+    return aStar(maze, start, goal, h.Manhattan)
+
 def mutateMaze(maze, algorithm, path):
     """
     Changes the given maze by changing either a space to a wall or a wall to a space
@@ -215,7 +256,7 @@ def aStar(grid, start, goal, heuristic, tieSort=False, fire=False, fireLimit=0, 
                 else:
                     heap.heappush(frontier,(currentG + heuristic(newCoord, goal),(newCoord, current)))
                     gVals.update({newCoord: currentG})
-    return False, None, (closedList)
+    return False, None, (closedList, exploredNodes, frontier)
 
 def scan(grid, coords, fire=False, previousGrids={}, fireLimit=0, g=-1, q=0):
     """
@@ -399,4 +440,17 @@ def testFour():
     print(generateFireGrids(previousFireGrids, grid, len(solvedPath) - 1, 0.3))
     print(solvedPath)
 
-if (__name__ == "__main__"): testFour()
+def testFive():
+    hardestMaze = hardestAStarMaze(50)
+    _, path, info = aStarManhattan(hardestMaze, (0, 0), (49, 49))
+    _, explored, _ = info
+    expansionSize = len(explored)
+    for y, x in path:
+        hardestMaze[y][x] = 3
+    pyplot.matshow(hardestMaze)
+    pyplot.title(expansionSize)
+    pyplot.show()
+    for y, x in path:
+        hardestMaze[y][x] = 0
+
+if (__name__ == "__main__"): testFive()
