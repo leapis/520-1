@@ -34,11 +34,19 @@ def generateSolvableGrid(dimm, p, algorithm):
     return grid
 
 def generateFireGrid(dimm, p):
+    """
+    return a grid with fire in the top right corner
+    """
     grid = generateGrid(dimm, p)
+    #Note: we don't check here for diagonal accuracy. That is done in our driver code
     grid[0][dimm-1] = FIRE
+    grid[dimm-1][0] = UNBLOCKED
     return grid
 
 def grid_copy(grid):
+    """
+    retun a copy of a given grid
+    """
     dimm = len(grid)
     newGrid = np.zeros((dimm, dimm))
     for i in range(dimm):
