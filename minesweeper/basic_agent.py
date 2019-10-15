@@ -105,7 +105,6 @@ def sweep_grid(grid):
             else:
                 mines[i][j] = 1
                 clues[i][j] = grid[i][j]
-                print(grid[i][j])
         pyplot.matshow(grid)
         pyplot.matshow(mines)
         pyplot.show()
