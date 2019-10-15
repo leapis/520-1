@@ -4,6 +4,7 @@ import minesweeper
 import random
 import time
 import sys
+import inference
 
 # This is a very useful array to iterate over for neighbors
 surroundings = [
@@ -60,6 +61,56 @@ def inspect_cell(grid, mines, clues, i, j):
                     print('You should not have revealed this mine!')
 
     return info
+    
+def isNewFact(knowledge_base, fact):
+    for kFact in knowledge_base:
+        if fact.is_equal_to(kFact):
+            return False
+    return True
+
+def infer(grid, clues, mines):
+
+    knowledge_base = []
+
+    for m in range(len(grid)): #create knowledge base
+        for n in range(len(grid[0])):
+            if mines[m][n] == 1 and minesweeper.unsolved_in_neighborhood(mines, m, n) > 0: #if confirmed safe and there are unsolved
+                assert (minesweeper.unsolved_in_neighborhood(mines, m, n) != 1), "UNSOLVED_IN_NEIGHBORHOOD ERROR" #if there is only one, we should have already caught it
+                unknowns = []
+                minesFound = 0
+                for offset in surroundings:
+                    i, j = m + offset[0], n + offset[1]
+                    if mines[i][j] == 0: #coveread
+                        unknowns.append( (i,j) )
+                    elif mines[i][j] == -1: #mine
+                        minesFound += 1
+                value = clues[m][m] - minesFound #mines we haven't found yet
+                knowledge_base.append(inference.Fact(value, unknowns))
+
+    updated = True
+    while (updated): #iterate through facts to see if we can use modus ponens
+        updated = False
+        for fact in knowledge_base:
+            assert (len(fact.unknowns) > 1), "ATOMIC GOT THROUGH"
+            if ( len(fact.unknowns) == 2): continue #set of 2 cannot contain subset
+            for otherFact in knowledge_base:
+                foundFact, newFact = fact.merge_subset(otherFact)
+                if foundFact and isNewFact(knowledge_base, newFact):
+                    if newFact.is_solved_zero:
+                        for cell in newFact.unknowns:
+                            a, b = cell
+                            mines[a][b] = 1
+                            clues[a][b] = minesweeper.mines_in_neighborhood(grid, a, b)
+                        return True, clues, mines
+                    if newFact.is_solved_atomic:
+                        a, b = newFact.unknowns.pop()
+                        assert (newFact.value == 1), str(newFact.value) + " GOT THROUGH newFact"
+                        mines[a][b] = -1
+                        return True, clues, mines
+                    updated = True
+                    knowledge_base.append(newFact)
+    
+    return False, clues, mines #we could not infer anything about the situation
 
 def sweep_grid(grid):
     d = len(grid)
@@ -79,8 +130,13 @@ def sweep_grid(grid):
             for j in range(d-1, -1, -1):
                 info = inspect_cell(grid, mines, clues, i, j) or info
 
-        # Rule 5 of the basic agent, there are no known ways forward, so take random guess
         if not info:
+            print("Trying inference")
+            #now let's try to solve it with our logical inference engine:
+            clues, discovered = infer(grid, clues, mines)
+
+        # Rule 5 of the basic agent, there are no known ways forward, so take random guess
+        if not info and not discovered:
             # But first we check if theres no ways forward because the puzzle is complete!
             done = True
             for i in range(0, d):
@@ -91,6 +147,10 @@ def sweep_grid(grid):
                 print("Explosions: ", explosions)
                 return
 
+            print("randoming")
+            pyplot.matshow(grid)
+            pyplot.matshow(mines)
+            pyplot.show()
             # Random unknown cell
             i = random.randint(0, d - 1)
             j = random.randint(0, d - 1)
@@ -106,9 +166,9 @@ def sweep_grid(grid):
                 mines[i][j] = 1
                 clues[i][j] = grid[i][j]
                 print(grid[i][j])
-        pyplot.matshow(grid)
-        pyplot.matshow(mines)
-        pyplot.show()
+        #pyplot.matshow(grid)
+        #pyplot.matshow(mines)
+        #pyplot.show()
 
 if __name__ == '__main__':
     grid = minesweeper.generate_environment(40, 150)

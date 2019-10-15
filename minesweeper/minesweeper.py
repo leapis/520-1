@@ -25,6 +25,22 @@ def mines_in_neighborhood(array, i, j):
         offset += 1
     return number_of_mines
 
+def unsolved_in_neighborhood(matrix, m, n):
+    """ Return the total number of unsolved cells in the 8 cells surrounding spot matrix[m][n]
+    """
+    unsolvedCount = 0
+    surroundings = [
+        (-1, -1), (-1,  0), (-1,  1),
+        ( 0, -1),           ( 0,  1),
+        ( 1, -1), ( 1,  0), ( 1,  1)
+    ]
+    for offset in surroundings:
+        a, b = m + offset[0], n + offset[1]
+        if is_valid(a, b, len(matrix)):
+            if matrix[a][b] != 1:
+                unsolvedCount += 1
+    return unsolvedCount
+
 
 def generate_environment(d, n):
     """ Return a d x d grid with n mines assigned at random, where each
