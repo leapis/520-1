@@ -37,7 +37,7 @@ def unsolved_in_neighborhood(matrix, m, n):
     for offset in surroundings:
         a, b = m + offset[0], n + offset[1]
         if is_valid(a, b, len(matrix)):
-            if matrix[a][b] != 1:
+            if matrix[a][b] == 0:
                 unsolvedCount += 1
     return unsolvedCount
 

@@ -68,6 +68,17 @@ def isNewFact(knowledge_base, fact):
             return False
     return True
 
+def dumpSquare(mines, m, n):
+    return ("""
+    {v1} {v2} {v3}
+    {v4} {v5} {v6}
+    {v7} {v8} {v9}
+    """.format(
+        v1=mines[m-1][n-1],v2=mines[m-1,n],v3=mines[m-1,n+1],
+        v4=mines[m][n-1],v5=mines[m,n],v6=mines[m,n+1],
+        v7=mines[m+1][n-1],v8=mines[m+1,n],v9=mines[m+1,n+1],
+        ))
+
 def infer(grid, clues, mines):
 
     knowledge_base = []
@@ -76,36 +87,50 @@ def infer(grid, clues, mines):
         for n in range(len(grid[0])):
             if mines[m][n] == 1 and minesweeper.unsolved_in_neighborhood(mines, m, n) > 0: #if confirmed safe and there are unsolved
                 assert (minesweeper.unsolved_in_neighborhood(mines, m, n) != 1), "UNSOLVED_IN_NEIGHBORHOOD ERROR" #if there is only one, we should have already caught it
+                assert (minesweeper.unsolved_in_neighborhood(mines, m, n) >= 0), "UNSOLVED_IN_NEIGHBORHOOD SEVERE ERROR"
                 unknowns = []
                 minesFound = 0
                 for offset in surroundings:
                     i, j = m + offset[0], n + offset[1]
+                    if not minesweeper.is_valid(i, j, len(grid)): continue
                     if mines[i][j] == 0: #coveread
                         unknowns.append( (i,j) )
                     elif mines[i][j] == -1: #mine
                         minesFound += 1
-                value = clues[m][m] - minesFound #mines we haven't found yet
-                knowledge_base.append(inference.Fact(value, unknowns))
+
+                diffValue = int(clues[m][n]) - minesFound #mines we haven't found yet
+                assert (int(clues[m][n]) > 0), "VALUES_AT_OR_UNDER_ZERO: " + str(int(clues[m][n])) + " - " + str(minesFound) + " = " + str(diffValue) + " :: " + dumpSquare(mines, m, n)
+                knowledge_base.append(inference.Fact(diffValue, unknowns))
 
     updated = True
     while (updated): #iterate through facts to see if we can use modus ponens
         updated = False
         for fact in knowledge_base:
-            assert (len(fact.unknowns) > 1), "ATOMIC GOT THROUGH"
+            assert (len(fact.unknowns) > 1), ("ATOMIC GOT THROUGH: " + str(fact.value) + " : " + str(fact.unknowns) + 
+                "minestatus: " + str(mines[list(fact.unknowns)[0][0]][list(fact.unknowns)[0][1]]) + 
+                "actual: " + str(grid[list(fact.unknowns)[0][0]][list(fact.unknowns)[0][0]]) +
+                " :: " + dumpSquare(grid, list(fact.unknowns)[0][0], list(fact.unknowns)[0][1]))
             if ( len(fact.unknowns) == 2): continue #set of 2 cannot contain subset
             for otherFact in knowledge_base:
                 foundFact, newFact = fact.merge_subset(otherFact)
                 if foundFact and isNewFact(knowledge_base, newFact):
-                    if newFact.is_solved_zero:
+                    if newFact.is_solved_zero():
+                        print(str(newFact.value), ":", str(newFact.unknowns))
                         for cell in newFact.unknowns:
                             a, b = cell
+                            assert(mines[a][b] == 0), "DISCOVERED EXISTING FACT"
                             mines[a][b] = 1
+                            assert(grid[a][b] != -1), "INCORRECT ASSIGNMENT (ZEROS)"
                             clues[a][b] = minesweeper.mines_in_neighborhood(grid, a, b)
+                            print("SOLVED FOR" + str(a) + "," + str(b))
                         return True, clues, mines
-                    if newFact.is_solved_atomic:
+                    if newFact.is_solved_atomic():
                         a, b = newFact.unknowns.pop()
                         assert (newFact.value == 1), str(newFact.value) + " GOT THROUGH newFact"
+                        assert(mines[a][b] == 0), "ATOMIC DISCOVERED EXISTING FACT"
                         mines[a][b] = -1
+                        assert (mines[a][b] == grid[a][b]), "INCORRECT ASSIGNMENT (ATOMIC)"
+                        print("SOLVED FOR" + str(a) + "," + str(b))
                         return True, clues, mines
                     updated = True
                     knowledge_base.append(newFact)
@@ -132,8 +157,12 @@ def sweep_grid(grid):
 
         if not info:
             print("Trying inference")
+            discovered = False
             #now let's try to solve it with our logical inference engine:
-            clues, discovered = infer(grid, clues, mines)
+            discovered, clues, mines = infer(grid, clues, mines)
+            if (discovered): 
+                print("Inference worked!")
+                #assert(False), "WORKED!"
 
         # Rule 5 of the basic agent, there are no known ways forward, so take random guess
         if not info and not discovered:
@@ -148,9 +177,9 @@ def sweep_grid(grid):
                 return
 
             print("randoming")
-            pyplot.matshow(grid)
-            pyplot.matshow(mines)
-            pyplot.show()
+            #pyplot.matshow(grid)
+            #pyplot.matshow(mines)
+            #pyplot.show()
             # Random unknown cell
             i = random.randint(0, d - 1)
             j = random.randint(0, d - 1)
@@ -171,5 +200,6 @@ def sweep_grid(grid):
         #pyplot.show()
 
 if __name__ == '__main__':
-    grid = minesweeper.generate_environment(40, 150)
-    sweep_grid(grid)
+    while(True):
+        grid = minesweeper.generate_environment(40, 150)
+        sweep_grid(grid)
