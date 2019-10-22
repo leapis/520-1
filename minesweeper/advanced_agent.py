@@ -58,7 +58,8 @@ def inspect_cell(grid, mines, clues, i, j):
                 mines[i + oi][j + oj] = 1
                 clues[i + oi][j + oj] = grid[i + oi][j + oj] # This access represents a reveal
                 if grid[i + oi][j + oj] == -1:
-                    print('You should not have revealed this mine!')
+                    ('You should not have revealed this mine!')
+                    assert(1 == 2), "REVEAL_ERROR"
 
     return info
     
@@ -115,14 +116,14 @@ def infer(grid, clues, mines):
                 foundFact, newFact = fact.merge_subset(otherFact)
                 if foundFact and isNewFact(knowledge_base, newFact):
                     if newFact.is_solved_zero():
-                        print(str(newFact.value), ":", str(newFact.unknowns))
+                        #print(str(newFact.value), ":", str(newFact.unknowns))
                         for cell in newFact.unknowns:
                             a, b = cell
                             assert(mines[a][b] == 0), "DISCOVERED EXISTING FACT"
                             mines[a][b] = 1
                             assert(grid[a][b] != -1), "INCORRECT ASSIGNMENT (ZEROS)"
                             clues[a][b] = minesweeper.mines_in_neighborhood(grid, a, b)
-                            print("SOLVED FOR" + str(a) + "," + str(b))
+                            #print("SOLVED FOR" + str(a) + "," + str(b))
                         return True, clues, mines
                     if newFact.is_solved_atomic():
                         a, b = newFact.unknowns.pop()
@@ -130,7 +131,7 @@ def infer(grid, clues, mines):
                         assert(mines[a][b] == 0), "ATOMIC DISCOVERED EXISTING FACT"
                         mines[a][b] = -1
                         assert (mines[a][b] == grid[a][b]), "INCORRECT ASSIGNMENT (ATOMIC)"
-                        print("SOLVED FOR" + str(a) + "," + str(b))
+                        #print("SOLVED FOR" + str(a) + "," + str(b))
                         return True, clues, mines
                     updated = True
                     knowledge_base.append(newFact)
@@ -142,6 +143,10 @@ def sweep_grid(grid):
     explosions = 0
     clues = numpy.zeros((d, d))
     mines = numpy.zeros((d, d)) # 0 for covered, -1 for mine, 1 for safe
+
+    #stats
+    guessed = 0
+    inferred = 0
 
     while True:
         info = False # Whether any cell moved forward in the puzzle
@@ -156,13 +161,14 @@ def sweep_grid(grid):
                 info = inspect_cell(grid, mines, clues, i, j) or info
 
         if not info:
-            print("Trying inference")
+            #print("Trying inference")
             discovered = False
             #now let's try to solve it with our logical inference engine:
             discovered, clues, mines = infer(grid, clues, mines)
             if (discovered): 
-                print("Inference worked!")
+                #print("Inference worked!")
                 #assert(False), "WORKED!"
+                inferred += 1
 
         # Rule 5 of the basic agent, there are no known ways forward, so take random guess
         if not info and not discovered:
@@ -173,14 +179,16 @@ def sweep_grid(grid):
                     if mines[i][j] == 0:
                         done = False
             if done:
-                print("Explosions: ", explosions)
-                return
+                #print("Explosions: ", explosions)
+                return explosions, guessed, inferred
 
-            print("randoming")
+            #print("randoming")
             #pyplot.matshow(grid)
             #pyplot.matshow(mines)
             #pyplot.show()
             # Random unknown cell
+            guessed += 1
+
             i = random.randint(0, d - 1)
             j = random.randint(0, d - 1)
             while mines[i][j] != 0:
@@ -189,15 +197,20 @@ def sweep_grid(grid):
 
             if grid[i][j] == -1:
                 mines[i][j] = -1
-                print('Boom!', flush = True)
+                #print('Boom!', flush = True)
                 explosions += 1
             else:
                 mines[i][j] = 1
                 clues[i][j] = grid[i][j]
-                print(grid[i][j])
+                #print(grid[i][j])
         #pyplot.matshow(grid)
         #pyplot.matshow(mines)
         #pyplot.show()
+
+def backtrack_Solve(knowledge_base, graph):
+    """Given a knowledge base and a graph, find the best guess (one least likely to be a mine)
+    """
+
 
 if __name__ == '__main__':
     while(True):

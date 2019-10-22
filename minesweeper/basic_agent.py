@@ -67,6 +67,9 @@ def sweep_grid(grid):
     clues = numpy.zeros((d, d))
     mines = numpy.zeros((d, d)) # 0 for covered, -1 for mine, 1 for safe
 
+    #stats
+    guessed = 0
+
     while True:
         info = False # Whether any cell moved forward in the puzzle
         for i in range(0, d):
@@ -88,9 +91,11 @@ def sweep_grid(grid):
                     if mines[i][j] == 0:
                         done = False
             if done:
-                print("Explosions: ", explosions)
-                return
+                #print("Explosions: ", explosions)
+                return explosions, guessed
 
+            guessed += 1
+            
             # Random unknown cell
             i = random.randint(0, d - 1)
             j = random.randint(0, d - 1)
@@ -100,14 +105,14 @@ def sweep_grid(grid):
 
             if grid[i][j] == -1:
                 mines[i][j] = -1
-                print('Boom!', flush = True)
+                #print('Boom!', flush = True)
                 explosions += 1
             else:
                 mines[i][j] = 1
                 clues[i][j] = grid[i][j]
-        pyplot.matshow(grid)
-        pyplot.matshow(mines)
-        pyplot.show()
+        #pyplot.matshow(grid)
+        #pyplot.matshow(mines)
+        #pyplot.show()
 
 if __name__ == '__main__':
     grid = minesweeper.generate_environment(40, 150)
