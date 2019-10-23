@@ -1,12 +1,15 @@
 class Fact:
+
     def __init__(self, value, unknowns):
         self.value = value
         self.unknowns = set(unknowns)
+        self.operator = '='
     
     def add_unknown(self, unknown):
         self.unknowns.add(unknown)
     
     def get_unknowns(self):
+        """Return set of unknowns"""
         return self.unknowns
 
     def get_value(self):

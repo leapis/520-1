@@ -80,9 +80,19 @@ def dumpSquare(mines, m, n):
         v7=mines[m+1][n-1],v8=mines[m+1,n],v9=mines[m+1,n+1],
         ))
 
-def infer(grid, clues, mines):
+def infer(grid, clues, mines, mineCount):
 
     knowledge_base = []
+
+    unsolved = mineCount
+
+    all_unsolved_cells = []
+    for m in range(len(grid)):
+        for n in range(len(grid[0])):
+            if mines[m][n] == 0:
+                all_unsolved_cells.append((m,n))
+            elif mines[m][n] == -1:
+                unsolved -= 1
 
     for m in range(len(grid)): #create knowledge base
         for n in range(len(grid[0])):
@@ -102,11 +112,29 @@ def infer(grid, clues, mines):
                 diffValue = int(clues[m][n]) - minesFound #mines we haven't found yet
                 assert (int(clues[m][n]) > 0), "VALUES_AT_OR_UNDER_ZERO: " + str(int(clues[m][n])) + " - " + str(minesFound) + " = " + str(diffValue) + " :: " + dumpSquare(mines, m, n)
                 knowledge_base.append(inference.Fact(diffValue, unknowns))
+    bigFact = inference.Fact(unsolved, all_unsolved_cells)
+    if (len(all_unsolved_cells) == 0):
+        return False, clues, mines, knowledge_base
+    elif (len(all_unsolved_cells) == 1):
+        #we've got a solve
+        for cell in bigFact.unknowns:
+            a, b = cell
+            assert(mines[a][b] == 0), "DISCOVERED EXISTING FACT"
+            mines[a][b] = 1
+            assert(grid[a][b] != -1), "INCORRECT ASSIGNMENT (ZEROS)"
+            clues[a][b] = minesweeper.mines_in_neighborhood(grid, a, b)
+            #print("SOLVED FOR" + str(a) + "," + str(b))
+        return True, clues, mines, knowledge_base
+    if (len(all_unsolved_cells) > 5):
+        None
+    else:
+        knowledge_base.append(bigFact)
 
     updated = True
     while (updated): #iterate through facts to see if we can use modus ponens
         updated = False
         for fact in knowledge_base:
+            #print("hi!")
             assert (len(fact.unknowns) > 1), ("ATOMIC GOT THROUGH: " + str(fact.value) + " : " + str(fact.unknowns) + 
                 "minestatus: " + str(mines[list(fact.unknowns)[0][0]][list(fact.unknowns)[0][1]]) + 
                 "actual: " + str(grid[list(fact.unknowns)[0][0]][list(fact.unknowns)[0][0]]) +
@@ -135,10 +163,9 @@ def infer(grid, clues, mines):
                         return True, clues, mines, knowledge_base
                     updated = True
                     knowledge_base.append(newFact)
-    
     return False, clues, mines, knowledge_base #we could not infer anything about the situation
 
-def sweep_grid(grid):
+def sweep_grid(grid, mineCount):
     d = len(grid)
     explosions = 0
     clues = numpy.zeros((d, d))
@@ -165,7 +192,7 @@ def sweep_grid(grid):
             #print("Trying inference")
             discovered = False
             #now let's try to solve it with our logical inference engine:
-            discovered, clues, mines, kb = infer(grid, clues, mines)
+            discovered, clues, mines, kb = infer(grid, clues, mines, mineCount)
             if (discovered): 
                 #print("Inference worked!")
                 #assert(False), "WORKED!"
